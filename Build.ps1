@@ -5,22 +5,22 @@ param(
     # You may also "Publish"
     # It's also acceptable to skip the "Clean" and particularly "Update" steps
     [ValidateSet("Clean", "Update", "Build", "Test", "Package", "Publish")]
-    [string[]]$Script:Step = @("Clean", "Update", "Build", "Test", "Package"),
+    [string[]]$Step = @("Clean", "Update", "Build", "Test"),
 
     # The path to the module to build. Defaults to the folder this script is in.
     [Alias("PSPath")]
-    [string]$Script:Path = $PSScriptRoot,
+    [string]$Path = $PSScriptRoot,
     
-    [string]$Script:ModuleName = $(Split-Path $Path -Leaf),
+    [string]$ModuleName = $(Split-Path $Path -Leaf),
     
     # The target framework for .net (for packages), with fallback versions
     # The default supports PS3:  "net40","net35","net20","net45"
     # To only support PS4, use:  "net45","net40","net35","net20"
     # To support PS2, you use:   "net35","net20"
-    [string[]]$Script:TargetFramework = @("net40","net35","net20","net45"),
+    [string[]]$TargetFramework = @("net40","net35","net20","net45"),
     
     # The revision number (pulled from the environment in AppVeyor)
-    [Nullable[int]]$Script:RevisionNumber = ${Env:APPVEYOR_BUILD_NUMBER},
+    [Nullable[int]]$RevisionNumber = ${Env:APPVEYOR_BUILD_NUMBER},
     
     [ValidateNotNullOrEmpty()]
     [String]$CodeCovToken = ${ENV:CODECOV_TOKEN}
@@ -28,6 +28,7 @@ param(
 
 $Script:TraceVerboseTimer = New-Object System.Diagnostics.Stopwatch
 $Script:TraceVerboseTimer.Start()
+
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -125,7 +126,7 @@ function update {
     [CmdletBinding()]
     param(
         # Force reinstall
-        [switch]$Force,
+        [switch]$Force=$($Step -contains "Clean"),
 
         # Remove packages first
         [switch]$Clean
@@ -140,9 +141,9 @@ function update {
             $Name = Register-PackageSource NuGet -Location 'https://www.nuget.org/api/v2' -ForceBootstrap -ProviderName NuGet | % Name
         }
         
-        if($Force) {
+        if($Force -and (Test-Path $Path\packages)) {
             # force reinstall by cleaning the old ones
-            remove-item $Path\packages\ -Recurse -Force
+            remove-item $Path\packages\ -Recurse -Force 
         }
         $null = mkdir $Path\packages\ -Force
 
@@ -280,9 +281,15 @@ function test {
     Write-Host Import-Module $ReleasePath\${ModuleName}.psd1 -Force
     Write-Host $(prompt) -NoNewLine
 
-    # TODO: Update dependency to Pester 4.0 and use Invoke-Pester
-    Write-Host Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
-    $TestResults = Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    # TODO: Update dependency to Pester 4.0 and use just Invoke-Pester
+    if(Get-Command Invoke-Gherkin -ErrorAction SilentlyContinue) {
+        Write-Host Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+        $TestResults = Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    }
+
+    Write-Host Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    $TestResults = Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+
 
     Remove-Module $ModuleName -ErrorAction SilentlyContinue
     Remove-Item "$TestPath\.Do.Not.COMMIT.This.Steps.ps1"
