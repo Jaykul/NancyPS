@@ -1,12 +1,12 @@
-NancyPS is Nancy, in PowerShell
+NancyPS is [Nancy](https://github.com/NancyFx/Nancy), in PowerShell
 
-My goal is to produce an easy to use PowerShell layer on top of Nancy so that I can spin up micro-services in PowerShell in my dev and test environments.
+My goal is to produce an easy to use PowerShell layer on top of Nancy so that I can spin up micro-web-services in PowerShell in my dev and test environments.
 
-My goal is *not* to make a something that will scale, nor to make a management tool for end users, nor even to manage hundreds of machines or services, and my goal is certainly not to develop a custom PowerShell web framework, or even to promote the use of PowerShell as a heavy duty web development language.
+The goal is *not* necessarily to make a something that will scale, nor to make a management tool for end users, nor even to manage hundreds of machines or services, and my personal goal is certainly not to develop a custom PowerShell web framework, or even to promote the use of PowerShell as a heavy duty web development language.  With that motivation in mind...
 
 ### NancyPS is self-hosting in your current PowerShell runspace. 
 
-This means that it has *one* runspace. It is, effectively single-threaded, because it processes each requests in the PowerShell runspace that it's started from. The reason I chose to do it this way is that it means my micro services have access to variables and functions (and providers) and modules that were already loaded there, and populates the $Errors, etc. Unlike [flancy](https://github.com/toenuff/flancy), it doesn't create a new runspace for each request, so it's not stateles, and won't scale.  However, the handlers/configuration can be modified at any time, and a simple restart brings the latest configuration online.
+This means that it has *one* runspace. It is, effectively, single-threaded; it processes each request in the PowerShell runspace that it's started from. The reason I chose to do it this way is that it means my micro services have access to variables and functions (and providers) and modules that were already loaded there, and it populates the $Errors, etc. Unlike [flancy](https://github.com/toenuff/flancy), it doesn't create a new runspace for each request, so it's not stateles, and won't scale very far.  However, the handlers/configuration can be modified at any time, and a simple restart brings the latest configuration online...
 
 ## The super-duper-happy-path:
 
