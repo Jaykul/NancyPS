@@ -12,7 +12,7 @@ This means that it has *one* runspace. It is, effectively, single-threaded; it p
 
 To borrow the phrase from the Nancy community, the goal here is to make something that "just works" and is "easily customizable" with a low degree of code or friction. Here's what "Hello World" looks like in NancyPS:
 
-```
+```posh
 Set-NancyHandler -Path "/" -Handler { "Hello World" }
 
 Start-NancyHost -AutomaticUrlReservations
@@ -48,7 +48,7 @@ It's also easy to use part of the URL as an argument. You can simply tag the var
 
 Within your script handler you have access to the full session scope, and the [NancyModule](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/NancyModule.cs) (`$this`).  The module includes properties for the [Context](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/NancyContext.cs), as well as the [Request](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/Request.cs) and [Response](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/DefaultResponseFormatter.cs). 
 
-```
+```posh
 Set-NancyHandler -Path "/hello/{name}" -Handler { 
     [PSCustomObject]@{
         From = $args.name.ToString()
