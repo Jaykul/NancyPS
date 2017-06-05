@@ -23,7 +23,7 @@
                         [string]$location, 
                         [Nancy.Responses.RedirectResponse+RedirectType]$type = "SeeOther"
                     )
-                    [Nancy.Responses.RedirectResponse]::new( [Nancy.Extensions.ContextExtensions]::ToFullPath( $this.Context, $location), $type )
+                    New-Object -TypeName Nancy.Responses.RedirectResponse -ArgumentList ([Nancy.Extensions.ContextExtensions]::ToFullPath($this.Context, $location), $type)
                 </Script>
             </ScriptMethod>
         </Members>

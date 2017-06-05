@@ -69,10 +69,9 @@
         ${script:Nancy Host Configuration} = $HostConfiguration
         ${script:Nancy Uri} = $Uri
 
-        ${script:Nancy Nancy Server} = [Nancy.Hosting.Self.NancyHost]::new(${script:Nancy Host Configuration}, ${script:Nancy Uri})
+        ${script:Nancy Nancy Server} = New-Object -TypeName Nancy.Hosting.Self.NancyHost -ArgumentList ${script:Nancy Host Configuration}, ${script:Nancy Uri}
         ${script:Nancy Nancy Server}.Start();
 
-        if(!$Quiet) {
         # Open it in the browser to prove it works
             Start-Process ${script:Nancy Uri}
             Write-Host "Nancy running on ${script:Nancy Uri}, call Stop-NancyHost to stop it"

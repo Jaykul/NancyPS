@@ -13,6 +13,6 @@ param()
         throw "There's no Host Configuration, you can't Restart-Nancy until after you start it. Try running:`nStart-Nancy -AutomaticUrlReservations"
     }
 
-    ${script:Nancy Nancy Server} = [Nancy.Hosting.Self.NancyHost]::new(${script:Nancy Host Configuration}, ${script:Nancy Uri})
+    ${script:Nancy Nancy Server} = New-Object -TypeName Nancy.Hosting.Self.NancyHost -ArgumentList ${script:Nancy Host Configuration}, ${script:Nancy Uri}
     ${script:Nancy Nancy Server}.Start();
 }
