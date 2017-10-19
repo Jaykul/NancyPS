@@ -1,4 +1,4 @@
-NancyPS is [Nancy](https://github.com/NancyFx/Nancy), in PowerShell
+﻿NancyPS is [Nancy](https://github.com/NancyFx/Nancy), in PowerShell
 
 My goal is to produce an easy to use PowerShell layer on top of Nancy so that I can spin up micro-web-services in PowerShell in my dev and test environments.
 
@@ -42,9 +42,9 @@ Restart-NancyHost
 
 ### Writing script handlers
 
-Script handlers are easy with NancyPS. In fact, you saw one in the previous example to redirect requests for the root "/" to the "/index.html" static file.
+As we've already seen in both the examples above, PowerShell script handlers are easy with NancyPS. To make them more powerful, you need to be able to take parameters.
 
-It's also easy to use part of the URL as an argument. You can simply tag the variable part of a path with curly braces like `/hello/{name}` ... and `name` will show up as a named property of `$args`. You can also handle `?var=value` query syntax via `$this.Request.Query` ...
+The easiest way to do that in Nancy is the basic REST api method where the last parts of the URL are actually variable. You can simply tag the variable part of a path with curly braces like `/hello/{name}` ... and `name` will show up as a named property of `$args`. You can also handle `?var=value` query syntax via `$this.Request.Query` ...
 
 Within your script handler you have access to the full session scope, and the [NancyModule](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/NancyModule.cs) (`$this`).  The module includes properties for the [Context](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/NancyContext.cs), as well as the [Request](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/Request.cs) and [Response](https://github.com/NancyFx/Nancy/blob/1.x-WorkingBranch/src/Nancy/DefaultResponseFormatter.cs). 
 

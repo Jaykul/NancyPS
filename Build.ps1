@@ -1,4 +1,4 @@
-#requires -Version "4.0" -Module PackageManagement, Configuration, Pester
+#requires -Version "4.0" -Module PackageManagement, Pester, Configuration
 [CmdletBinding()]
 param(
     # The step(s) to run. Defaults to "Clean", "Update", "Build", "Test", "Package"
@@ -10,20 +10,23 @@ param(
     # The path to the module to build. Defaults to the folder this script is in.
     [Alias("PSPath")]
     [string]$Path = $PSScriptRoot,
-    
+
     [string]$ModuleName = $(Split-Path $Path -Leaf),
-    
+
     # The target framework for .net (for packages), with fallback versions
     # The default supports PS3:  "net40","net35","net20","net45"
     # To only support PS4, use:  "net45","net40","net35","net20"
     # To support PS2, you use:   "net35","net20"
     [string[]]$TargetFramework = @("net40","net35","net20","net45"),
-    
+
     # The revision number (pulled from the environment in AppVeyor)
     [Nullable[int]]$RevisionNumber = ${Env:APPVEYOR_BUILD_NUMBER},
-    
+
     [ValidateNotNullOrEmpty()]
-    [String]$CodeCovToken = ${ENV:CODECOV_TOKEN}
+    [String]$CodeCovToken = ${ENV:CODECOV_TOKEN},
+
+    # The default language is your current UICulture
+    [Globalization.CultureInfo]$DefaultLanguage = $((Get-Culture).Name)
 )
 
 $Script:TraceVerboseTimer = New-Object System.Diagnostics.Stopwatch
@@ -39,51 +42,51 @@ function init {
     #   Calculate your paths and so-on here.
     [CmdletBinding()]
     param()
-    
+
     # Calculate Paths
-        # The output path is just a temporary output and logging location
-        $Script:OutputPath = Join-Path $Path output
-        $null = mkdir $OutputPath -Force
+    # The output path is just a temporary output and logging location
+    $Script:OutputPath = Join-Path $Path output
+    $null = mkdir $OutputPath -Force
 
-        # We expect the source for the module in a subdirectory called one of three things:
-        $Script:SourcePath = "src", "source", ${ModuleName} | ForEach { Join-Path $Path $_ -Resolve -ErrorAction SilentlyContinue } | Select -First 1
-        if(!$SourcePath) {
-            Write-Warning "This Build script expects a 'Source' or '$ModuleName' folder to be alongside it."
-            throw "Can't find module source folder." 
-        }
+    # We expect the source for the module in a subdirectory called one of three things:
+    $Script:SourcePath = "src", "source", ${ModuleName} | ForEach { Join-Path $Path $_ -Resolve -ErrorAction Ignore } | Select -First 1
+    if(!$SourcePath) {
+        Write-Warning "This Build script expects a 'Source' or '$ModuleName' folder to be alongside it."
+        throw "Can't find module source folder."
+    }
 
-        $Script:ManifestPath = Join-Path $SourcePath "${ModuleName}.psd1" -Resolve -ErrorAction SilentlyContinue
-        if(!$ManifestPath) {
-            Write-Warning "This Build script expects a '${ModuleName}.psd1' in the '$SourcePath' folder."
-            throw "Can't find module source files" 
-        }
-        $Script:TestPath = "Tests", "Specs" | ForEach { Join-Path $Path $_ -Resolve -ErrorAction SilentlyContinue } | Select -First 1
-        if(!$TestPath) {
-            Write-Warning "This Build script expects a 'Tests' or 'Specs' folder to contain tests."
-        }
-        # Calculate Version here, because we need it for the release path
-        [Version]$Script:Version = Get-Metadata $ManifestPath -PropertyName ModuleVersion
+    $Script:ManifestPath = Join-Path $SourcePath "${ModuleName}.psd1" -Resolve -ErrorAction Ignore
+    if(!$ManifestPath) {
+        Write-Warning "This Build script expects a '${ModuleName}.psd1' in the '$SourcePath' folder."
+        throw "Can't find module source files"
+    }
+    $Script:TestPath = "Tests", "Specs" | ForEach { Join-Path $Path $_ -Resolve -ErrorAction Ignore } | Select -First 1
+    if(!$TestPath) {
+        Write-Warning "This Build script expects a 'Tests' or 'Specs' folder to contain tests."
+    }
+    # Calculate Version here, because we need it for the release path
+    [Version]$Script:Version = Get-Metadata $ManifestPath -PropertyName ModuleVersion
 
-        # If the RevisionNumber is specified as ZERO, this is a release build ... 
-        # If the RevisionNumber is not specified, this is a dev box build
-        # If the RevisionNumber is specified, we assume this is a CI build
-        if($Script:RevisionNumber -ge 0) {
-            # For CI builds we don't increment the build number
-            $Script:Build = if($Version.Build -le 0) { 0 } else { $Version.Build }
-        } else {
-            # For dev builds, assume we're working on the NEXT release
-            $Script:Build = if($Version.Build -le 0) { 1 } else { $Version.Build + 1}
-        }
+    # If the RevisionNumber is specified as ZERO, this is a release build ...
+    # If the RevisionNumber is not specified, this is a dev box build
+    # If the RevisionNumber is specified, we assume this is a CI build
+    if($Script:RevisionNumber -ge 0) {
+        # For CI builds we don't increment the build number
+        $Script:Build = if($Version.Build -le 0) { 0 } else { $Version.Build }
+    } else {
+        # For dev builds, assume we're working on the NEXT release
+        $Script:Build = if($Version.Build -le 0) { 1 } else { $Version.Build + 1}
+    }
 
-        if([string]::IsNullOrEmpty($RevisionNumber)) {
-            $Script:Version = New-Object Version $Version.Major, $Version.Minor, $Build
-        } else {
-            $Script:Version = New-Object Version $Version.Major, $Version.Minor, $Build, $RevisionNumber
-        }
+    if([string]::IsNullOrEmpty($RevisionNumber) -or $RevisionNumber -eq 0) {
+        $Script:Version = New-Object Version $Version.Major, $Version.Minor, $Build
+    } else {
+        $Script:Version = New-Object Version $Version.Major, $Version.Minor, $Build, $RevisionNumber
+    }
 
-        # The release path is where the final module goes
-            $Script:ReleasePath = Join-Path $Path $Version
-            $Script:ReleaseManifest = Join-Path $ReleasePath "${ModuleName}.psd1"
+    # The release path is where the final module goes
+    $Script:ReleasePath = Join-Path $Path $Version
+    $Script:ReleaseManifest = Join-Path $ReleasePath "${ModuleName}.psd1"
 
 }
 
@@ -95,21 +98,21 @@ function clean {
         # Also clean packages
         [Switch]$Packages
     )
-    
+
     Trace-Message "OUTPUT Release Path: $ReleasePath"
     if(Test-Path $ReleasePath) {
         Trace-Message "       Clean up old build"
         Trace-Message "DELETE $ReleasePath\"
-        Remove-Item $ReleasePath -Recurse -Force
+        Remove-Item $ReleasePath -Recurse -Force -ErrorAction Continue
     }
     if(Test-Path $Path\packages) {
         Trace-Message "DELETE $Path\packages"
         # force reinstall by cleaning the old ones
-        Remove-Item $Path\packages\ -Recurse -Force
+        Remove-Item $Path\packages\ -Recurse -Force -ErrorAction Continue
     }
     if(Test-Path $Path\packages\build.log) {
         Trace-Message "DELETE $OutputPath\build.log"
-        Remove-Item $OutputPath\build.log -Recurse -Force
+        Remove-Item $OutputPath\build.log -Recurse -Force -ErrorAction Continue
     }
 
 }
@@ -135,15 +138,16 @@ function update {
     Set-StrictMode -Version Latest
     Trace-Message "UPDATE $ModuleName in $Path"
 
+    # Nuget dependencies
     if(Test-Path (Join-Path $Path packages.config)) {
-        if(!($Name = Get-PackageSource | ? Location -eq 'https://www.nuget.org/api/v2' | % Name)) {
+        if(!($Name = Get-PackageSource | ? Location -match 'https://www.nuget.org/api/v2' | % Name)) {
             Write-Warning "Adding NuGet package source"
             $Name = Register-PackageSource NuGet -Location 'https://www.nuget.org/api/v2' -ForceBootstrap -ProviderName NuGet | % Name
         }
-        
+
         if($Force -and (Test-Path $Path\packages)) {
             # force reinstall by cleaning the old ones
-            remove-item $Path\packages\ -Recurse -Force 
+            remove-item $Path\packages\ -Recurse -Force
         }
         $null = mkdir $Path\packages\ -Force
 
@@ -157,15 +161,21 @@ function update {
         }
     }
 
-    # we also check for git submodules...
-    git submodule update --init --recursive
+    # Make sure the modules we're dependent on are installed
+    foreach($manifest in Get-ChildItem $Script:SourcePath -filter *.psd1 -Recurse) {
+        foreach($Dependency in (Get-Module $manifest.FullName -ListAvailable -ErrorAction SilentlyContinue).RequiredModules) {
+            if(!(Get-Module $Dependency.Name -ListAvailable -EA 0)) {
+                Install-Module -Name $Dependency.Name -AllowClobber -Force -SkipPublisherCheck -Scope CurrentUser
+            }
+        }
+    }
 }
 
 function build {
     [CmdletBinding()]
     param()
     Trace-Message "BUILDING: $ModuleName from $Path"
-    # Copy NuGet dependencies 
+    # Copy NuGet dependencies
     $PackagesConfig = (Join-Path $Path packages.config)
     if(Test-Path $PackagesConfig) {
         Trace-Message "       Copying Packages"
@@ -212,9 +222,9 @@ function build {
         Trace-Message "       Setting content for $ReleaseModule"
 
         $FunctionsToExport = Join-Path $SourcePath Public\*.ps1 -Resolve | % { [System.IO.Path]::GetFileNameWithoutExtension($_) }
-        Set-Content $ReleaseModule ((
-            (Get-Content (Join-Path $SourcePath Private\*.ps1) -Raw) + 
-            (Get-Content (Join-Path $SourcePath Public\*.ps1) -Raw)) -join "`r`n`r`n`r`n") -Encoding UTF8
+        Set-Content $ReleaseModule (@(
+            @(Get-Content (Join-Path $SourcePath Private\*.ps1) -Raw) +
+            @(Get-Content (Join-Path $SourcePath Public\*.ps1) -Raw)) -join "`r`n`r`n`r`n") -Encoding UTF8
 
         # If there are any folders that aren't Public, Private, Tests, or Specs ...
         $OtherFolders = Get-ChildItem $SourcePath -Directory -Exclude Public, Private, Tests, Specs
@@ -222,10 +232,9 @@ function build {
         Copy-Item $OtherFolders -Recurse -Destination $ReleasePath
 
         # Finally, we need to copy any files in the Source directory
-        Get-ChildItem $SourcePath -File | 
-            Where Name -ne $RootModule | 
+        Get-ChildItem $SourcePath -File |
+            Where Name -ne $RootModule |
             Copy-Item -Destination $ReleasePath
-        
 
         Update-Manifest $ReleaseManifest -Property FunctionsToExport -Value $FunctionsToExport
     } else {
@@ -233,14 +242,30 @@ function build {
         Trace-Message "       Copying Module Source"
         Trace-Message "COPY   $SourcePath\"
         $null = robocopy $SourcePath\  $ReleasePath /E /NP /LOG+:"$OutputPath\build.log" /R:2 /W:15
-        if($LASTEXITCODE -ne 3) {
+        if($LASTEXITCODE -ne 3 -AND $LASTEXITCODE -ne 1) {
             throw "Failed to copy Module (${LASTEXITCODE}), see build.log for details"
+        }
+    }
+
+    # Copy the readme file as an about_ help
+    $ReadMe = Join-Path $Path Readme.md
+    if(Test-Path $ReadMe -PathType Leaf) {
+        $LanguagePath = Join-Path $ReleasePath $DefaultLanguage
+        $null = mkdir $LanguagePath -Force
+        $about_module = Join-Path $LanguagePath "about_${ModuleName}.help.txt"
+        if(!(Test-Path $about_module)) {
+            Trace-Message "Turn readme into about_module"
+            Copy-Item -LiteralPath $ReadMe -Destination $about_module
         }
     }
 
     ## Update the PSD1 Version:
     Trace-Message "       Update Module Version"
+    Push-Location $ReleasePath
+    $FileList = Get-ChildItem -Recurse -File | Resolve-Path -Relative
     Update-Metadata -Path $ReleaseManifest -PropertyName 'ModuleVersion' -Value $Version
+    Update-Metadata -Path $ReleaseManifest -PropertyName 'FileList' -Value $FileList
+    Pop-Location
     (Get-Module $ReleaseManifest -ListAvailable | Out-String -stream) -join "`n" | Trace-Message
 }
 
@@ -252,8 +277,8 @@ function test {
         [Switch]$ShowWip,
 
         [int]$FailLimit=${Env:ACCEPTABLE_FAILURE},
-        
-        [ValidateNotNullOrEmpty()]    
+
+        [ValidateNotNullOrEmpty()]
         [String]$JobID = ${Env:APPVEYOR_JOB_ID}
     )
 
@@ -277,19 +302,18 @@ function test {
     Set-Content "$TestPath\.Do.Not.COMMIT.This.Steps.ps1" "Import-Module $ReleasePath\${ModuleName}.psd1 -Force"
 
     # Show the commands they would have to run to get these results:
-    Write-Host $(prompt) -NoNewLine
+    Write-Host "C:\PS> " -NoNewLine
     Write-Host Import-Module $ReleasePath\${ModuleName}.psd1 -Force
-    Write-Host $(prompt) -NoNewLine
+    Write-Host "C:\PS> " -NoNewLine
 
-    # TODO: Update dependency to Pester 4.0 and use just Invoke-Pester
-    if(Get-Command Invoke-Gherkin -ErrorAction SilentlyContinue) {
-        Write-Host Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
-        $TestResults = Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
-    }
-
-    Write-Host Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
-    $TestResults = Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
-
+    # # TODO: Update dependency to Pester 4.0 and use just Invoke-Pester
+    # if(Get-Command Invoke-Gherkin -ErrorAction SilentlyContinue) {
+    #     Write-Host Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    #     $TestResults = Invoke-Gherkin -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    # } else {
+    #     # Write-Host Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    #     # $TestResults = Invoke-Pester -Path $TestPath -CodeCoverage "$ReleasePath\*.psm1" -PassThru @Options
+    # }
 
     Remove-Module $ModuleName -ErrorAction SilentlyContinue
     Remove-Item "$TestPath\.Do.Not.COMMIT.This.Steps.ps1"
@@ -300,8 +324,8 @@ function test {
     {
         if($result -and $result.CodeCoverage.NumberOfCommandsAnalyzed -gt 0)
         {
-            $script:failedTestsCount += $result.FailedCount 
-            $script:passedTestsCount += $result.PassedCount 
+            $script:failedTestsCount += $result.FailedCount
+            $script:passedTestsCount += $result.PassedCount
             $CodeCoverageTitle = 'Code Coverage {0:F1}%'  -f (100 * ($result.CodeCoverage.NumberOfCommandsExecuted / $result.CodeCoverage.NumberOfCommandsAnalyzed))
 
             # TODO: this file mapping does not account for the new Public|Private module source (and I don't know how to make it do so)
@@ -315,7 +339,7 @@ function test {
 
             if($result.CodeCoverage.MissedCommands.Count -gt 0) {
                 $result.CodeCoverage.MissedCommands |
-                    ConvertTo-Html -Title $CodeCoverageTitle | 
+                    ConvertTo-Html -Title $CodeCoverageTitle |
                     Out-File (Join-Path $OutputPath "CodeCoverage-${Version}.html")
             }
             if(${CodeCovToken})
@@ -329,7 +353,7 @@ function test {
     }
 
     # If we're on AppVeyor ....
-    if(Get-Command Add-AppveyorCompilationMessage -ErrorAction SilentlyContinue) { 
+    if(Get-Command Add-AppveyorCompilationMessage -ErrorAction SilentlyContinue) {
         Add-AppveyorCompilationMessage -Message ("{0} of {1} tests passed" -f @($TestResults.PassedScenarios).Count, (@($TestResults.PassedScenarios).Count + @($TestResults.FailedScenarios).Count)) -Category $(if(@($TestResults.FailedScenarios).Count -gt 0) { "Warning" } else { "Information"})
         Add-AppveyorCompilationMessage -Message ("{0:P} of code covered by tests" -f ($TestResults.CodeCoverage.NumberOfCommandsExecuted / $TestResults.CodeCoverage.NumberOfCommandsAnalyzed)) -Category $(if($TestResults.CodeCoverage.NumberOfCommandsExecuted -lt $TestResults.CodeCoverage.NumberOfCommandsAnalyzed) { "Warning" } else { "Information"})
     }
@@ -339,7 +363,9 @@ function test {
             Trace-Message "Sending Test Results to AppVeyor backend" -Verbose:(!$Quiet)
             $wc = New-Object 'System.Net.WebClient'
             $response = $wc.UploadFile("https://ci.appveyor.com/api/testresults/nunit/${JobID}", $Options.OutputFile)
-            Trace-Message ([System.Text.Encoding]::ASCII.GetString($response)) -Verbose:(!$Quiet)
+            if($response) {
+                Trace-Message ([System.Text.Encoding]::ASCII.GetString($response)) -Verbose:(!$Quiet)
+            }
         } else {
             Write-Warning "Couldn't find Test Output: $($Options.OutputFile)"
         }
@@ -350,6 +376,23 @@ function test {
         $errorRecord = New-Object System.Management.Automation.ErrorRecord $exception, "FailedScenarios", "LimitsExceeded", $Results
         $PSCmdlet.ThrowTerminatingError($errorRecord)
     }
+}
+
+function package {
+    [CmdletBinding()]
+    param()
+
+    Trace-Message "robocopy '$ReleasePath' '${OutputPath}\${ModuleName}' /MIR /NP "
+    $null = robocopy $ReleasePath "${OutputPath}\${ModuleName}" /MIR /NP /LOG+:"$OutputPath\build.log"
+
+    $zipFile = Join-Path $OutputPath "${ModuleName}-${Version}.zip"
+    Add-Type -assemblyname System.IO.Compression.FileSystem
+    Remove-Item $zipFile -ErrorAction SilentlyContinue
+    Trace-Message "ZIP    $zipFile"
+    [System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $OutputPath $ModuleName), $zipFile)
+
+    # You can add other artifacts here
+    ls $OutputPath -File
 }
 
 function Trace-Message {
@@ -368,14 +411,14 @@ function Trace-Message {
     )
     begin {
         if($Stopwatch) {
-            $Script:TraceTimer = $Stopwatch    
+            $Script:TraceTimer = $Stopwatch
             $Script:TraceTimer.Start()
         }
         if(!(Test-Path Variable:Script:TraceTimer)) {
             $Script:TraceTimer = New-Object System.Diagnostics.Stopwatch
             $Script:TraceTimer.Start()
         }
-        if($ResetTimer) 
+        if($ResetTimer)
         {
             $Script:TraceTimer.Restart()
         }
@@ -408,6 +451,8 @@ function Trace-Message {
 # First call to Trace-Message, pass in our TraceTimer to make sure we time EVERYTHING.
 Trace-Message "BUILDING: $ModuleName in $Path" -Stopwatch $TraceVerboseTimer
 
+Push-Location $Path
+
 init
 
 foreach($s in $step){
@@ -415,4 +460,5 @@ foreach($s in $step){
     &$s
 }
 
+Pop-Location
 Trace-Message "FINISHED: $ModuleName in $Path" -KillTimer

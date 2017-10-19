@@ -1,15 +1,15 @@
 function Start-NancyHost {
-    # Starts the Nancy self-hosted server with the NancyPS ScriptModule... 
+    # Starts the Nancy self-hosted server with the NancyPS ScriptModule...
     [CmdletBinding(DefaultParameterSetName="Simple")]
     param(
         # The URL for Nancy to run on
         [Parameter(Position=0)]
         $Uri="http://localhost:8282",
- 
+
         # If set, the /_Nancy/ diagnostics pages will be enabled (and protected by this password)
         [Alias("Password")]
         [string]$DiagnosticsPassword,
-        
+
         # If set, UrlReservations will  be created automatically
         [Parameter(ParameterSetName="Simple")]
         [switch]$AutomaticUrlReservations,
@@ -17,8 +17,8 @@ function Start-NancyHost {
         # For advanced configuration, you can set UrlReservations manually here
         [Parameter(ParameterSetName="ManualUrlReservations")]
         [Nancy.Hosting.Self.UrlReservations]$UrlReservations = @{
-            CreateAutomatically = [bool]$Public
-        }, 
+            CreateAutomatically = [bool]$AutomaticUrlReservations
+        },
 
         # For advanced configuration, you can set anything you need to on the HostConfiguration
         # Note that UrlReservations are part of the HostConfiguration, so this overrides that
@@ -29,7 +29,7 @@ function Start-NancyHost {
         },
 
         # Enables tracing of requests for debugging purposes.
-        # If you're having trouble figuring out why your handler isn't invoked, or why a view can't be found, turn this on, and set a DiagnosticsPassword, then visit /_Nancy/ on your hosted site... 
+        # If you're having trouble figuring out why your handler isn't invoked, or why a view can't be found, turn this on, and set a DiagnosticsPassword, then visit /_Nancy/ on your hosted site...
         [Parameter()]
         [switch]$EnableRequestTracing,
 
@@ -38,24 +38,24 @@ function Start-NancyHost {
         [Parameter()]
         [switch]$CaseSensitive,
 
-        # Enable exception traces when there are errors 
+        # Enable exception traces when there are errors
         # If you use this on a public URL, you should leave this off
         # The majority of the time it's not useful, since the errors will be in the PowerShell script anyway
         [Parameter()]
-        [switch]$EnableErrorTraces, 
+        [switch]$EnableErrorTraces,
 
         # If set, don't launch a browser or Write-Host the successs message
         [switch]$Quiet
     )
 
-    begin { 
+    begin {
         [NancyPS.StaticBootstrapper]::DefaultRunspace = $Host.Runspace
     }
 
     end {
-        [NancyPS.StaticConfiguration]::EnableRequestTracing = $EnableRequestTracing
-        [NancyPS.StaticConfiguration]::DisableErrorTraces = !$EnableErrorTraces
-        [NancyPS.StaticConfiguration]::CaseSensitive = $CaseSensitive
+        [Nancy.StaticConfiguration]::EnableRequestTracing = $EnableRequestTracing
+        [Nancy.StaticConfiguration]::DisableErrorTraces = !$EnableErrorTraces
+        [Nancy.StaticConfiguration]::CaseSensitive = $CaseSensitive
 
         if(![string]::IsNullOrEmpty($DiagnosticsPassword)){
             [NancyPS.StaticBootstrapper]::DiagnosticsPassword = $DiagnosticsPassword
