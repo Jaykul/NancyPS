@@ -61,6 +61,11 @@ function Start-NancyHost {
             [NancyPS.StaticBootstrapper]::DiagnosticsPassword = $DiagnosticsPassword
         }
 
+        if(!(Get-NancyHander)){
+            # If they call Start without having any handlers, let's at least add a base one
+            Set-NancyHandler -Path "/" -Handler { "Welcome to Nancy" }
+        }
+
         ${script:Nancy Host Configuration} = $HostConfiguration
         ${script:Nancy Uri} = $Uri
 
