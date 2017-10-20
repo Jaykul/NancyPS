@@ -283,8 +283,8 @@ function test {
     )
 
     if(!$TestPath) {
-        Write-Warning "No tests folder found. Invoking Pester in root: $Path"
-        $TestPath = $Path
+        Write-Warning "No tests folder found. No tests run."
+        return
     }
 
     Trace-Message "TESTING: $ModuleName with $TestPath"
