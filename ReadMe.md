@@ -1,8 +1,16 @@
-﻿NancyPS is [Nancy](https://github.com/NancyFx/Nancy), in PowerShell
+﻿NancyPS was [Nancy](https://github.com/NancyFx/Nancy), in PowerShell
 
-My goal is to produce an easy to use PowerShell layer on top of Nancy so that I can spin up micro-web-services in PowerShell in my dev and test environments.
+My goal was to produce an easy to use PowerShell layer on top of Nancy so that I can spin up micro-web-services in PowerShell in my dev and test environments.
 
-The goal is *not* necessarily to make a something that will scale, nor to make a management tool for end users, nor even to manage hundreds of machines or services, and my personal goal is certainly not to develop a custom PowerShell web framework, or even to promote the use of PowerShell as a heavy duty web development language.  With that motivation in mind...
+### Nancy itself is basically _done_
+
+In the new ASP.NET Core, the main concepts of Nancy were built directly into ASP.NET and the Nancy team felt they had, in some sense won -- there was no longer a real need to release a .NeT Core version of Nancy. One core contributor has created an offshot: [Carter](https://github.com/CarterCommunity/Carter) which has some of the functionality ... but in any case, without a release Nancy on .NET Standard, this module is effectively stuck on Windows PowerShell.
+
+### Please try [Polaris](https://github.com/PowerShell/Polaris)
+
+Since the goal of Nancy was *never* to make a something that would scale, nor to make a management tool for end users, nor even to manage hundreds of machines or services, my personal interest was always limited -- I build web apps in C#, not in PowerShell. This project is therefore archived/abandoned, and I have to recommend that if you want something like this, you try Polaris, which is built on .NET Standard directly, without the need for Nancy, now that they've rearchitected the underlying bits.
+
+
 
 ### NancyPS is self-hosting in your current PowerShell runspace. 
 
